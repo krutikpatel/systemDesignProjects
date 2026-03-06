@@ -1,0 +1,17 @@
+policies:
+  - id: "default"
+    algorithm: TOKEN_BUCKET
+    limit: 100
+    refillRate: 10
+    capacity: 100
+
+  - id: "strict"
+    algorithm: SLIDING_WINDOW
+    limit: 20
+    windowMs: 60000
+
+  - id: "metered"
+    algorithm: LEAKY_BUCKET
+    limit: 50
+    leakRate: 10
+    capacity: 50

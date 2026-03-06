@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ratelimiter.config.PolicyLoaderTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-03-06T06:15:54.444Z" hostname="Krutiks-MacBook-Air.local" time="0.018">
+  <properties/>
+  <testcase name="reloadInvalidPoliciesKeepsOriginalState()" classname="com.ratelimiter.config.PolicyLoaderTest" time="0.0"/>
+  <testcase name="missingRequiredFieldsCollectAllErrors()" classname="com.ratelimiter.config.PolicyLoaderTest" time="0.013"/>
+  <testcase name="defaultYamlLoadsThreePolicies()" classname="com.ratelimiter.config.PolicyLoaderTest" time="0.001"/>
+  <testcase name="duplicatePolicyIdThrowsConfigValidation()" classname="com.ratelimiter.config.PolicyLoaderTest" time="0.0"/>
+  <testcase name="concurrentReadsDuringReloadNeverSeeNullOrPartialMap()" classname="com.ratelimiter.config.PolicyLoaderTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

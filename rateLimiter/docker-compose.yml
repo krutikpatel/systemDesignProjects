@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  rate-limiter:
+    build: .
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    environment:
+      REDIS_URI: redis://redis:6379
+      GRPC_PORT: "50051"
+      METRICS_PORT: "9090"
+      FAIL_MODE: OPEN
+    depends_on: [redis]
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

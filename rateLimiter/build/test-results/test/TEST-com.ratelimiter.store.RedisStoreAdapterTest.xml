@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.ratelimiter.store.RedisStoreAdapterTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-03-06T06:15:54.628Z" hostname="Krutiks-MacBook-Air.local" time="0.206">
+  <properties/>
+  <testcase name="getWrapsExceptionsAsStoreException()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.183"/>
+  <testcase name="getReturnsValueFromRedis()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.02"/>
+  <testcase name="closeClosesConnectionAndClient()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.001"/>
+  <testcase name="pingReturnsTrueWhenPong()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.001"/>
+  <testcase name="pingReturnsFalseOnFailure()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.0"/>
+  <testcase name="evalReturnsMultiResult()" classname="com.ratelimiter.store.RedisStoreAdapterTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
