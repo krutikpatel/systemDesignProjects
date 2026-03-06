@@ -80,6 +80,17 @@ class PolicyLoaderTest {
     }
 
     @Test
+    void tokenBucketLimitMustMatchCapacity() {
+        ConfigValidationException ex = assertThrows(
+                ConfigValidationException.class,
+                () -> new PolicyLoader(List.of(
+                        new RateLimitPolicy("bad", Algorithm.TOKEN_BUCKET, 50, 0, 10, 100, 0)
+                ))
+        );
+        assertTrue(ex.getErrors().stream().anyMatch(e -> e.contains("limit must equal capacity for TOKEN_BUCKET")));
+    }
+
+    @Test
     void concurrentReadsDuringReloadNeverSeeNullOrPartialMap() throws Exception {
         PolicyLoader loader = new PolicyLoader(List.of(
                 new RateLimitPolicy("p1", Algorithm.TOKEN_BUCKET, 10, 0, 1, 10, 0),
@@ -107,8 +118,8 @@ class PolicyLoaderTest {
                 start.await();
                 for (int i = 0; i < 250; i++) {
                     loader.reload(List.of(
-                            new RateLimitPolicy("p1", Algorithm.TOKEN_BUCKET, 10 + i, 0, 1, 10, 0),
-                            new RateLimitPolicy("p2", Algorithm.TOKEN_BUCKET, 20 + i, 0, 1, 10, 0)
+                            new RateLimitPolicy("p1", Algorithm.TOKEN_BUCKET, 10 + i, 0, 1, 10 + i, 0),
+                            new RateLimitPolicy("p2", Algorithm.TOKEN_BUCKET, 20 + i, 0, 1, 20 + i, 0)
                     ));
                 }
             } catch (InterruptedException e) {

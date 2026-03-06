@@ -117,6 +117,9 @@ public class PolicyLoader {
                     if (capacity == null || capacity <= 0) {
                         errors.add(policyRef + ": capacity must be > 0 for TOKEN_BUCKET");
                     }
+                    if (limit != null && capacity != null && capacity > 0 && limit > 0 && limit != capacity) {
+                        errors.add(policyRef + ": limit must equal capacity for TOKEN_BUCKET");
+                    }
                 }
                 if (algorithm == Algorithm.LEAKY_BUCKET) {
                     if (leakRate == null || leakRate <= 0) {
@@ -184,6 +187,10 @@ public class PolicyLoader {
             }
             if (policy.algorithm() == Algorithm.TOKEN_BUCKET && (policy.refillRate() <= 0 || policy.capacity() <= 0)) {
                 errors.add(ref + ": refillRate and capacity must be > 0 for TOKEN_BUCKET");
+            }
+            if (policy.algorithm() == Algorithm.TOKEN_BUCKET && policy.limit() > 0 && policy.capacity() > 0
+                    && policy.limit() != policy.capacity()) {
+                errors.add(ref + ": limit must equal capacity for TOKEN_BUCKET");
             }
             if (policy.algorithm() == Algorithm.LEAKY_BUCKET && (policy.leakRate() <= 0 || policy.capacity() <= 0)) {
                 errors.add(ref + ": leakRate and capacity must be > 0 for LEAKY_BUCKET");

@@ -8,8 +8,6 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.StructuredTaskScope;
 
 public class RedisStoreAdapter implements StoreAdapter {
     private final RedisClient client;
@@ -55,7 +53,7 @@ public class RedisStoreAdapter implements StoreAdapter {
     public String get(String key) throws StoreException {
         long start = System.nanoTime();
         try {
-            String value = runOnVirtualThread(() -> commands.get(key).get());
+            String value = commands.get(key).get();
             recordStoreOp("get", start);
             return value;
         } catch (Exception e) {
@@ -68,7 +66,7 @@ public class RedisStoreAdapter implements StoreAdapter {
     public void set(String key, String value, long ttlMs) throws StoreException {
         long start = System.nanoTime();
         try {
-            runOnVirtualThread(() -> commands.setex(key, secondsFromMillis(ttlMs), value).get());
+            commands.psetex(key, Math.max(1, ttlMs), value).get();
             recordStoreOp("set", start);
         } catch (Exception e) {
             recordStoreError("set");
@@ -82,9 +80,7 @@ public class RedisStoreAdapter implements StoreAdapter {
         try {
             String[] keysArray = keys.toArray(String[]::new);
             String[] argsArray = args.toArray(String[]::new);
-            Object value = runOnVirtualThread(() ->
-                    commands.eval(script, ScriptOutputType.MULTI, keysArray, argsArray).get()
-            );
+            Object value = commands.eval(script, ScriptOutputType.MULTI, keysArray, argsArray).get();
             recordStoreOp("eval", start);
             return value;
         } catch (Exception e) {
@@ -96,7 +92,7 @@ public class RedisStoreAdapter implements StoreAdapter {
     @Override
     public boolean ping() {
         try {
-            String result = runOnVirtualThread(() -> commands.ping().get());
+            String result = commands.ping().get();
             return "PONG".equalsIgnoreCase(result);
         } catch (Exception ignored) {
             return false;
@@ -112,10 +108,6 @@ public class RedisStoreAdapter implements StoreAdapter {
         }
     }
 
-    private static long secondsFromMillis(long ttlMs) {
-        return Math.max(1, (long) Math.ceil(ttlMs / 1000.0));
-    }
-
     private void recordStoreOp(String operation, long startNanos) {
         if (metricsRegistry == null) {
             return;
@@ -128,36 +120,5 @@ public class RedisStoreAdapter implements StoreAdapter {
         if (metricsRegistry != null) {
             metricsRegistry.recordStoreError(operation);
         }
-    }
-
-    private static <T> T runOnVirtualThread(CheckedSupplier<T> supplier) throws Exception {
-        try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
-            StructuredTaskScope.Subtask<T> task = scope.fork(() -> {
-                try {
-                    return supplier.get();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            scope.join();
-            try {
-                scope.throwIfFailed();
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof RuntimeException runtimeException && runtimeException.getCause() != null) {
-                    cause = runtimeException.getCause();
-                }
-                if (cause instanceof Exception exception) {
-                    throw exception;
-                }
-                throw new Exception(cause);
-            }
-            return task.get();
-        }
-    }
-
-    @FunctionalInterface
-    private interface CheckedSupplier<T> {
-        T get() throws Exception;
     }
 }

@@ -35,12 +35,6 @@ public final class Errors {
         }
     }
 
-    public static class UnknownAlgorithmException extends RuntimeException {
-        public UnknownAlgorithmException(String message) {
-            super(message);
-        }
-    }
-
     public static class RateLimiterUnavailableException extends RuntimeException {
         public RateLimiterUnavailableException(String message) {
             super(message);

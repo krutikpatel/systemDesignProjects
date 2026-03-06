@@ -80,15 +80,20 @@ public class InMemoryStoreAdapter implements StoreAdapter {
                 k -> new TokenBucketState(capacity, now)
         );
 
-        long elapsed = Math.max(0, now - state.lastRefillSeconds);
-        double refreshed = Math.min(capacity, state.tokens + elapsed * refillRate);
+        synchronized (state) {
+            long elapsed = Math.max(0, now - state.lastRefillSeconds);
+            double refreshed = Math.min(capacity, state.tokens + elapsed * refillRate);
 
-        if (refreshed >= 1.0d) {
-            state.tokens = refreshed - 1.0d;
-            state.lastRefillSeconds = now;
-            return List.of(1L, Math.max(0L, (long) Math.floor(state.tokens)), now + Math.max(1L, ceilDiv(1, refillRate)));
+            if (refreshed >= 1.0d) {
+                state.tokens = refreshed - 1.0d;
+                state.lastRefillSeconds = now;
+                return List.of(
+                        1L,
+                        Math.max(0L, (long) Math.floor(state.tokens)),
+                        now + Math.max(1L, ceilDiv(1, refillRate))
+                );
+            }
         }
-
         return List.of(0L, 0L, now + Math.max(1L, ceilDiv(1, refillRate)));
     }
 
@@ -105,22 +110,23 @@ public class InMemoryStoreAdapter implements StoreAdapter {
         int limit = Integer.parseInt(args.get(2));
 
         Deque<Long> timestamps = slidingWindows.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+        synchronized (timestamps) {
+            long windowStart = nowMs - windowMs;
+            while (!timestamps.isEmpty() && timestamps.peekFirst() <= windowStart) {
+                timestamps.removeFirst();
+            }
 
-        long windowStart = nowMs - windowMs;
-        while (!timestamps.isEmpty() && timestamps.peekFirst() <= windowStart) {
-            timestamps.removeFirst();
+            if (timestamps.size() < limit) {
+                timestamps.addLast(nowMs);
+                long remaining = limit - timestamps.size();
+                long resetAt = (nowMs + windowMs + 999) / 1000;
+                return List.of(1L, Math.max(0L, remaining), resetAt);
+            }
+
+            long oldest = Objects.requireNonNullElse(timestamps.peekFirst(), nowMs);
+            long retryAfter = Math.max(1, (oldest + windowMs - nowMs + 999) / 1000);
+            return List.of(0L, 0L, retryAfter);
         }
-
-        if (timestamps.size() < limit) {
-            timestamps.addLast(nowMs);
-            long remaining = limit - timestamps.size();
-            long resetAt = (nowMs + windowMs + 999) / 1000;
-            return List.of(1L, Math.max(0L, remaining), resetAt);
-        }
-
-        long oldest = Objects.requireNonNullElse(timestamps.peekFirst(), nowMs);
-        long retryAfter = Math.max(1, (oldest + windowMs - nowMs + 999) / 1000);
-        return List.of(0L, 0L, retryAfter);
     }
 
     private static void requireSizes(List<String> keys, List<String> args, int expectedKeys, int expectedArgs) {

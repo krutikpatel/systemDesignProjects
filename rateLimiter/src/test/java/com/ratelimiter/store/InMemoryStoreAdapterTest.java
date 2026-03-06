@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.ratelimiter.model.Errors.StoreException;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 class InMemoryStoreAdapterTest {
@@ -65,5 +69,37 @@ class InMemoryStoreAdapterTest {
                 StoreException.class,
                 () -> adapter.eval("-- script: unknown", List.of("k"), List.of("1", "2", "3", "4"))
         );
+    }
+
+    @Test
+    void slidingWindowEvalIsThreadSafeUnderConcurrency() throws Exception {
+        InMemoryStoreAdapter adapter = new InMemoryStoreAdapter();
+        int workers = 40;
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(workers);
+        AtomicInteger failures = new AtomicInteger();
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < workers; i++) {
+                executor.submit(() -> {
+                    try {
+                        start.await();
+                        adapter.eval(
+                                "-- script: sliding_window",
+                                List.of("window:key"),
+                                List.of(String.valueOf(System.currentTimeMillis()), "60000", "10", "60")
+                        );
+                    } catch (Exception e) {
+                        failures.incrementAndGet();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            assertTrue(done.await(5, TimeUnit.SECONDS));
+        }
+
+        assertEquals(0, failures.get());
     }
 }

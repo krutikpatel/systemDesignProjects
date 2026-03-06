@@ -1,6 +1,7 @@
 package com.ratelimiter.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -18,7 +19,9 @@ import com.ratelimiter.grpc.proto.ReloadConfigRequest;
 import com.ratelimiter.model.Errors.ConfigValidationException;
 import com.ratelimiter.model.Errors.PolicyNotFoundException;
 import com.ratelimiter.model.Errors.RateLimiterUnavailableException;
+import com.ratelimiter.model.Errors.StoreException;
 import com.ratelimiter.model.RateLimitResult;
+import com.ratelimiter.store.CircuitBreakerStoreAdapter;
 import com.ratelimiter.store.StoreAdapter;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -83,6 +86,24 @@ class RateLimiterGrpcHandlerTest {
     }
 
     @Test
+    void checkRateLimitUnexpectedErrorMapsToInternal() {
+        RateLimiterService service = mock(RateLimiterService.class);
+        PolicyLoader loader = mock(PolicyLoader.class);
+        StoreAdapter store = mock(StoreAdapter.class);
+        when(service.check(any())).thenThrow(new RuntimeException("boom"));
+
+        RateLimiterGrpcHandler handler = new RateLimiterGrpcHandler(service, loader, store);
+        @SuppressWarnings("unchecked")
+        StreamObserver<CheckRateLimitResponse> observer = mock(StreamObserver.class);
+
+        handler.checkRateLimit(CheckRateLimitRequest.newBuilder().build(), observer);
+
+        ArgumentCaptor<Throwable> throwable = ArgumentCaptor.forClass(Throwable.class);
+        verify(observer).onError(throwable.capture());
+        assertEquals(Status.INTERNAL.getCode(), Status.fromThrowable(throwable.getValue()).getCode());
+    }
+
+    @Test
     void reloadConfigValidationFailureMapsToInvalidArgument() {
         RateLimiterService service = mock(RateLimiterService.class);
         PolicyLoader loader = mock(PolicyLoader.class);
@@ -103,6 +124,24 @@ class RateLimiterGrpcHandlerTest {
     }
 
     @Test
+    void reloadConfigUnexpectedErrorMapsToInternal() {
+        RateLimiterService service = mock(RateLimiterService.class);
+        PolicyLoader loader = mock(PolicyLoader.class);
+        StoreAdapter store = mock(StoreAdapter.class);
+        doThrow(new RuntimeException("boom")).when(loader).reload(any());
+
+        RateLimiterGrpcHandler handler = new RateLimiterGrpcHandler(service, loader, store);
+        @SuppressWarnings("unchecked")
+        StreamObserver<com.ratelimiter.grpc.proto.ReloadConfigResponse> observer = mock(StreamObserver.class);
+
+        handler.reloadConfig(ReloadConfigRequest.newBuilder().build(), observer);
+
+        ArgumentCaptor<Throwable> throwable = ArgumentCaptor.forClass(Throwable.class);
+        verify(observer).onError(throwable.capture());
+        assertEquals(Status.INTERNAL.getCode(), Status.fromThrowable(throwable.getValue()).getCode());
+    }
+
+    @Test
     void healthCheckReturnsOkWhenStorePingSucceeds() {
         RateLimiterService service = mock(RateLimiterService.class);
         PolicyLoader loader = mock(PolicyLoader.class);
@@ -119,5 +158,35 @@ class RateLimiterGrpcHandlerTest {
         verify(observer).onNext(captor.capture());
         assertEquals("ok", captor.getValue().getStatus());
         assertEquals(true, captor.getValue().getStoreOk());
+    }
+
+    @Test
+    void healthCheckReturnsDegradedWhenCircuitIsOpen() {
+        RateLimiterService service = mock(RateLimiterService.class);
+        PolicyLoader loader = mock(PolicyLoader.class);
+        StoreAdapter delegate = mock(StoreAdapter.class);
+        when(delegate.ping()).thenReturn(true);
+        when(delegate.eval(any(), any(), any())).thenThrow(new StoreException("down"));
+
+        CircuitBreakerStoreAdapter circuitBreaker = new CircuitBreakerStoreAdapter(
+                delegate,
+                1,
+                1,
+                60_000,
+                System::currentTimeMillis
+        );
+
+        assertThrows(StoreException.class, () -> circuitBreaker.eval("script", List.of("k"), List.of("a")));
+
+        RateLimiterGrpcHandler handler = new RateLimiterGrpcHandler(service, loader, circuitBreaker);
+        @SuppressWarnings("unchecked")
+        StreamObserver<HealthCheckResponse> observer = mock(StreamObserver.class);
+
+        handler.healthCheck(HealthCheckRequest.newBuilder().build(), observer);
+
+        ArgumentCaptor<HealthCheckResponse> captor = ArgumentCaptor.forClass(HealthCheckResponse.class);
+        verify(observer).onNext(captor.capture());
+        assertEquals("degraded", captor.getValue().getStatus());
+        assertEquals(false, captor.getValue().getStoreOk());
     }
 }

@@ -14,6 +14,8 @@ import com.ratelimiter.grpc.proto.ReloadConfigResponse;
 import com.ratelimiter.model.Errors.ConfigValidationException;
 import com.ratelimiter.model.Errors.PolicyNotFoundException;
 import com.ratelimiter.model.Errors.RateLimiterUnavailableException;
+import com.ratelimiter.store.CircuitBreakerStoreAdapter;
+import com.ratelimiter.store.CircuitState;
 import com.ratelimiter.store.StoreAdapter;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
@@ -66,6 +68,16 @@ public class RateLimiterGrpcHandler extends RateLimiterServiceGrpc.RateLimiterSe
             observer.onError(Status.NOT_FOUND.withDescription(e.getMessage()).asException());
         } catch (RateLimiterUnavailableException e) {
             observer.onError(Status.UNAVAILABLE.withDescription(e.getMessage()).asException());
+        } catch (RuntimeException e) {
+            log.error(
+                    append("policyId", request.getPolicyId())
+                            .and(append("key", request.getKey()))
+                            .and(append("path", request.getPath()))
+                            .and(append("method", request.getMethod())),
+                    "rate_limit_check_failed",
+                    e
+            );
+            observer.onError(Status.INTERNAL.withDescription("internal error while checking rate limit").asException());
         }
     }
 
@@ -84,12 +96,20 @@ public class RateLimiterGrpcHandler extends RateLimiterServiceGrpc.RateLimiterSe
         } catch (ConfigValidationException e) {
             String joined = String.join("; ", e.getErrors());
             observer.onError(Status.INVALID_ARGUMENT.withDescription(joined).asException());
+        } catch (RuntimeException e) {
+            log.error("reload_config_failed", e);
+            observer.onError(Status.INTERNAL.withDescription("internal error while reloading config").asException());
         }
     }
 
     @Override
     public void healthCheck(HealthCheckRequest request, StreamObserver<HealthCheckResponse> observer) {
-        boolean storeOk = store.ping();
+        boolean pingOk = store.ping();
+        boolean circuitClosed = true;
+        if (store instanceof CircuitBreakerStoreAdapter circuitBreakerStoreAdapter) {
+            circuitClosed = circuitBreakerStoreAdapter.getState() == CircuitState.CLOSED;
+        }
+        boolean storeOk = pingOk && circuitClosed;
         observer.onNext(
                 HealthCheckResponse.newBuilder()
                         .setStatus(storeOk ? "ok" : "degraded")

@@ -104,10 +104,12 @@ Error mapping:
 - `ConfigValidationException` -> `INVALID_ARGUMENT`
 - `RateLimiterUnavailableException` -> `UNAVAILABLE`
 - Deadline interceptor pre-check -> `DEADLINE_EXCEEDED`
+- unexpected runtime failures -> `INTERNAL`
 
 Mapping boundary:
 - `ProtoMapper` converts proto <-> internal model.
 - Business logic remains protobuf-decoupled.
+- `ALGORITHM_UNSPECIFIED` and unknown enum values are rejected (no fallback algorithm mapping).
 
 ## 7. Domain Model
 
@@ -223,6 +225,10 @@ Environment variables:
 - `GRPC_PORT` (default `50051`)
 - `METRICS_PORT` (default `9090`)
 - `FAIL_MODE` (default `OPEN`)
+
+Validation notes:
+- Invalid port values fail startup with explicit errors.
+- `FAIL_MODE` must be `OPEN` or `CLOSED` (case-insensitive).
 
 ## 14. Deployment and Packaging
 

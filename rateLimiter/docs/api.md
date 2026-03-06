@@ -47,6 +47,10 @@ Response:
 - `status` (`ok`/`degraded`)
 - `storeOk` (bool)
 
+Health semantics:
+- `status=ok` and `storeOk=true` only when Redis ping succeeds and the circuit breaker is `CLOSED`.
+- `status=degraded` and `storeOk=false` when ping fails or circuit breaker state is `OPEN`/`HALF_OPEN`.
+
 Example:
 ```bash
 grpcurl -plaintext -d '{}' \
@@ -59,3 +63,4 @@ grpcurl -plaintext -d '{}' \
 - `INVALID_ARGUMENT`: reload config validation failed
 - `UNAVAILABLE`: store unavailable and fail mode is closed
 - `DEADLINE_EXCEEDED`: request deadline already expired or under minimum budget
+- `INTERNAL`: unexpected server-side runtime failure in request/reload processing

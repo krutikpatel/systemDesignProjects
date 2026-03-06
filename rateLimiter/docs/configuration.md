@@ -21,6 +21,10 @@
 | `capacity` | integer | `TOKEN_BUCKET`, `LEAKY_BUCKET` | `> 0` |
 | `leakRate` | integer (req/sec) | `LEAKY_BUCKET` | `> 0` |
 
+Additional validation:
+- `TOKEN_BUCKET` policies must satisfy `limit == capacity`.
+- `ReloadConfig` rejects `ALGORITHM_UNSPECIFIED` and unrecognized enum values with `INVALID_ARGUMENT`.
+
 ## Live Reload via gRPC
 
 Use `ReloadConfig` to update policies without service restart:

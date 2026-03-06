@@ -1,13 +1,16 @@
 package com.ratelimiter.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.ratelimiter.grpc.proto.Algorithm;
 import com.ratelimiter.grpc.proto.CheckRateLimitRequest;
 import com.ratelimiter.grpc.proto.PolicyConfig;
+import com.ratelimiter.model.Errors.ConfigValidationException;
 import com.ratelimiter.model.RateLimitPolicy;
 import com.ratelimiter.model.RateLimitRequest;
 import com.ratelimiter.model.RateLimitResult;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ProtoMapperTest {
@@ -60,5 +63,37 @@ class ProtoMapperTest {
         assertEquals(com.ratelimiter.model.Algorithm.SLIDING_WINDOW, policy.algorithm());
         assertEquals(10, policy.limit());
         assertEquals(10_000, policy.windowMs());
+    }
+
+    @Test
+    void toPoliciesRejectsAlgorithmUnspecified() {
+        PolicyConfig config = PolicyConfig.newBuilder()
+                .setPolicyId("bad")
+                .setAlgorithm(Algorithm.ALGORITHM_UNSPECIFIED)
+                .setLimit(10)
+                .build();
+
+        ConfigValidationException ex = assertThrows(
+                ConfigValidationException.class,
+                () -> ProtoMapper.toPolicies(List.of(config))
+        );
+
+        assertEquals(true, ex.getErrors().stream().anyMatch(e -> e.contains("algorithm must be specified")));
+    }
+
+    @Test
+    void toPoliciesRejectsUnrecognizedAlgorithm() {
+        PolicyConfig config = PolicyConfig.newBuilder()
+                .setPolicyId("bad")
+                .setAlgorithmValue(999)
+                .setLimit(10)
+                .build();
+
+        ConfigValidationException ex = assertThrows(
+                ConfigValidationException.class,
+                () -> ProtoMapper.toPolicies(List.of(config))
+        );
+
+        assertEquals(true, ex.getErrors().stream().anyMatch(e -> e.contains("algorithm is unrecognized")));
     }
 }

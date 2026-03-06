@@ -10,11 +10,12 @@ import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MetricsRegistry {
     private final MeterRegistry meterRegistry;
     private final PrometheusMeterRegistry prometheusRegistry;
-    private final Map<String, Double> bucketFillRatios = new ConcurrentHashMap<>();
+    private final Map<String, AtomicReference<Double>> bucketFillRatios = new ConcurrentHashMap<>();
 
     public MetricsRegistry() {
         this(new PrometheusMeterRegistry(PrometheusConfig.DEFAULT));
@@ -50,10 +51,14 @@ public class MetricsRegistry {
     }
 
     public void recordBucketFillRatio(String policyId, double ratio) {
-        bucketFillRatios.put(policyId, ratio);
-        Gauge.builder("drl.bucket.fill.ratio", bucketFillRatios, map -> map.getOrDefault(policyId, 0.0d))
-                .tag("policy_id", policyId)
-                .register(meterRegistry);
+        AtomicReference<Double> ratioRef = bucketFillRatios.computeIfAbsent(policyId, id -> {
+            AtomicReference<Double> ref = new AtomicReference<>(0.0d);
+            Gauge.builder("drl.bucket.fill.ratio", ref, AtomicReference::get)
+                    .tag("policy_id", id)
+                    .register(meterRegistry);
+            return ref;
+        });
+        ratioRef.set(ratio);
     }
 
     public String scrape() {
