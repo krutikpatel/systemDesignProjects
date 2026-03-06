@@ -14,6 +14,7 @@ import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
 import io.grpc.ServerInterceptors;
+import io.grpc.protobuf.services.ProtoReflectionService;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +61,7 @@ public class Main {
         Server server = ServerBuilder.forPort(config.grpcPort())
                 .executor(executor)
                 .addService(ServerInterceptors.intercept(grpcHandler, defaultInterceptors()))
+                .addService(ProtoReflectionService.newInstance())
                 .build()
                 .start();
 
