@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.ratelimiter.ServerSmokeTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-03-06T06:15:54.321Z" hostname="Krutiks-MacBook-Air.local" time="0.116">
-  <properties/>
-  <testcase name="rpcRunsOnVirtualThread()" classname="com.ratelimiter.ServerSmokeTest" time="0.06"/>
-  <testcase name="inProcessHealthCheckReturnsOk()" classname="com.ratelimiter.ServerSmokeTest" time="0.056"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

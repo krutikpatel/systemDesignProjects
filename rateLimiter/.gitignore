@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+.gradle-home/
+
+# Build outputs
+build/
+out/
+target/
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# IDE/editor
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
